@@ -1,10 +1,12 @@
 package com.edc.binaryencrypt.main.crypto;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
  * Decorator that adds encryption to a string.
  * Uses Base64 encoding for the encrypted data.
+ * Encryption: XOR each byte of UTF-8 encoded data with KEY, then Base64 encode.
  */
 public class EncryptionDecorator {
     private static final int KEY = 0x5A; // Example key
@@ -19,15 +21,14 @@ public class EncryptionDecorator {
      * @return Base64-encoded encrypted string.
      */
     public String encrypt() {
+        // Convert string to bytes using UTF-8
+        byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
         // Apply XOR encryption
-        StringBuilder sb = new StringBuilder();
-        for (char c : data.toCharArray()) {
-            sb.append((char) (c ^ KEY));
+        for (int i = 0; i < dataBytes.length; i++) {
+            dataBytes[i] = (byte) (dataBytes[i] ^ KEY);
         }
-
         // Encode the encrypted bytes to Base64
-        byte[] encryptedBytes = sb.toString().getBytes();
-        return Base64.getEncoder().encodeToString(encryptedBytes);
+        return Base64.getEncoder().encodeToString(dataBytes);
     }
 
     /**
@@ -38,13 +39,11 @@ public class EncryptionDecorator {
     public static String decrypt(String encryptedData) {
         // Decode from Base64
         byte[] decodedBytes = Base64.getDecoder().decode(encryptedData);
-        String decrypted = new String(decodedBytes);
-
         // Apply XOR decryption (same as encryption)
-        StringBuilder sb = new StringBuilder();
-        for (char c : decrypted.toCharArray()) {
-            sb.append((char) (c ^ KEY));
+        for (int i = 0; i < decodedBytes.length; i++) {
+            decodedBytes[i] = (byte) (decodedBytes[i] ^ KEY);
         }
-        return sb.toString();
+        // Convert bytes to string using UTF-8
+        return new String(decodedBytes, StandardCharsets.UTF_8);
     }
 }

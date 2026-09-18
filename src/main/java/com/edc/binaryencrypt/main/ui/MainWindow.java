@@ -8,10 +8,16 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -42,7 +48,7 @@ public class MainWindow extends JFrame {
     }
 
     private void initializeUI() {
-        setTitle("Mensageiro Criptografado");
+        setTitle("Messager Cripto");
         setSize(900, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null); // Center on screen
@@ -232,37 +238,36 @@ public class MainWindow extends JFrame {
 
     /**
      * Encrypts a string using XOR with the master key, then encodes in Base64.
+     * Uses UTF-8 for charset conversion.
      * @param plaintext The string to encrypt.
      * @return Base64-encoded encrypted string.
      */
     private String encryptHistory(String plaintext) {
+        // Convert string to bytes using UTF-8
+        byte[] plainBytes = plaintext.getBytes(StandardCharsets.UTF_8);
         // Apply XOR encryption with master key
-        StringBuilder sb = new StringBuilder();
-        for (char c : plaintext.toCharArray()) {
-            sb.append((char) (c ^ masterKey));
+        for (int i = 0; i < plainBytes.length; i++) {
+            plainBytes[i] = (byte) (plainBytes[i] ^ masterKey);
         }
-
         // Encode the encrypted bytes to Base64
-        byte[] encryptedBytes = sb.toString().getBytes();
-        return Base64.getEncoder().encodeToString(encryptedBytes);
+        return Base64.getEncoder().encodeToString(plainBytes);
     }
 
     /**
      * Decrypts the data from Base64, then applies XOR decryption with the master key.
+     * Uses UTF-8 for charset conversion.
      * @param encryptedData The Base64-encoded encrypted string.
      * @return Decrypted string.
      */
     private String decryptHistory(String encryptedData) {
         // Decode from Base64
-        byte[] decodedBytes = Base64.getDecoder().decode(encryptedData);
-        String decrypted = new String(decodedBytes);
-
-        // Apply XOR decryption (same as encryption)
-        StringBuilder sb = new StringBuilder();
-        for (char c : decrypted.toCharArray()) {
-            sb.append((char) (c ^ masterKey));
+        byte[] encryptedBytes = Base64.getDecoder().decode(encryptedData);
+        // Apply XOR decryption with master key
+        for (int i = 0; i < encryptedBytes.length; i++) {
+            encryptedBytes[i] = (byte) (encryptedBytes[i] ^ masterKey);
         }
-        return sb.toString();
+        // Convert bytes to string using UTF-8
+        return new String(encryptedBytes, StandardCharsets.UTF_8);
     }
 
     private void onSendClicked() {
@@ -295,8 +300,7 @@ public class MainWindow extends JFrame {
         int userSelection = fileChooser.showOpenDialog(this);
         if (userSelection == JFileChooser.APPROVE_OPTION) {
             File fileToDecrypt = fileChooser.getSelectedFile();
-            try (FileReader reader = new FileReader(fileToDecrypt);
-                 BufferedReader br = new BufferedReader(reader)) {
+            try (BufferedReader br = Files.newBufferedReader(fileToDecrypt.toPath(), StandardCharsets.UTF_8)) {
                 // Read only the first line as the encrypted message
                 String encrypted = br.readLine();
                 if (encrypted == null) {
@@ -376,9 +380,9 @@ public class MainWindow extends JFrame {
         if (userSelection == JFileChooser.APPROVE_OPTION) {
             File fileToSave = fileChooser.getSelectedFile();
 
-            try (FileWriter writer = new FileWriter(fileToSave)) {
+            try (BufferedWriter writer = Files.newBufferedWriter(fileToSave.toPath(), StandardCharsets.UTF_8)) {
                 writer.write(encrypted);
-                writer.write(System.lineSeparator());
+                writer.newLine();
                 writer.write(Integer.toString(masterKey)); // Store master key in the file
                 showMessage("Mensagem criptografada salva com sucesso em: " + fileToSave.getAbsolutePath(), "Sucesso");
             } catch (IOException ex) {
@@ -406,6 +410,10 @@ public class MainWindow extends JFrame {
 
     /**
      * Saves the message history to a file, encrypted with the master key.
+     * Uses UTF-8 for charset conversion.
+     * Appends to the history file to preserve previous sessions' history.
+     * Each session's history is encrypted with its own master key and stored as a separate line.
+     * Format: [encrypted_history_line]\n
      */
     private void saveHistoryToFile() {
         try {
@@ -415,10 +423,12 @@ public class MainWindow extends JFrame {
             // Encrypt the history with master key
             String encryptedHistory = encryptHistory(historyText);
 
-            // Save to file
+            // Append to history file (each session's history on a new line)
             File historyFile = new File("historico.enc");
-            try (FileWriter writer = new FileWriter(historyFile)) {
+            try (BufferedWriter writer = Files.newBufferedWriter(historyFile.toPath(), StandardCharsets.UTF_8,
+                     StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
                 writer.write(encryptedHistory);
+                writer.newLine();
             }
         } catch (IOException ex) {
             // Don't show error to user for history saving failures
@@ -462,6 +472,9 @@ public class MainWindow extends JFrame {
     /**
      * Loads and displays the history file by decrypting it with a key from a selected message file.
      * The history messages are shown in the history list.
+     * Each line in historico.enc represents a session's entire history encrypted with that session's master key.
+     * We attempt to decrypt each line with the provided key; if successful, we parse the resulting history
+     * and add messages that start with "enviado: " or "recebido: ".
      */
     private void verifyHistory() {
         JFileChooser fileChooser = new JFileChooser();
@@ -471,8 +484,7 @@ public class MainWindow extends JFrame {
         int userSelection = fileChooser.showOpenDialog(this);
         if (userSelection == JFileChooser.APPROVE_OPTION) {
             File messageFile = fileChooser.getSelectedFile();
-            try (FileReader reader = new FileReader(messageFile);
-                 BufferedReader br = new BufferedReader(reader)) {
+            try (BufferedReader br = Files.newBufferedReader(messageFile.toPath(), StandardCharsets.UTF_8)) {
                 StringBuilder sb = new StringBuilder();
                 String line;
                 int lineCount = 0;
@@ -497,44 +509,56 @@ public class MainWindow extends JFrame {
                     return;
                 }
 
-                // Decrypt the history file using the key from the message file
+                // Load all lines from the history file (each line is a session's history)
                 File historyFile = new File("historico.enc");
                 if (!historyFile.exists()) {
                     showMessage("Arquivo de histórico não encontrado.", "Informação");
-                    // Clear the history list if history file doesn't exist
                     logModel.clear();
                     return;
                 }
 
-                try (FileReader historyReader = new FileReader(historyFile);
-                     BufferedReader brHistory = new BufferedReader(historyReader)) {
-                    StringBuilder historySb = new StringBuilder();
-                    String historyLine;
-                    while ((historyLine = brHistory.readLine()) != null) {
-                        historySb.append(historyLine);
+                List<String> historyLines;
+                try {
+                    historyLines = Files.readAllLines(historyFile.toPath(), StandardCharsets.UTF_8);
+                } catch (IOException ex) {
+                    showMessage("Erro ao ler o arquivo de histórico: " + ex.getMessage(), "Erro");
+                    return;
+                }
+
+                // Clear the current model
+                logModel.clear();
+
+                // Process each line in the history file
+                for (String encSessionHistory : historyLines) {
+                    if (encSessionHistory == null || encSessionHistory.isEmpty()) {
+                        continue;
                     }
-                    String encryptedHistory = historySb.toString();
-
-                    // Now decrypt the history using the file's master key
-                    // We need a temporary decryption method that uses the provided key
-                    String decryptedHistory = decryptHistoryWithKey(encryptedHistory, fileMasterKey);
-
-                    // Update the history list with the decrypted messages
-                    logModel.clear();
-                    if (decryptedHistory != null && !decryptedHistory.isEmpty()) {
-                        String[] messages = decryptedHistory.split(System.lineSeparator());
-                        for (String message : messages) {
-                            if (!message.isEmpty()) {
-                                logModel.addElement(message);
-                            }
+                    // Decrypt this session's history using the key from the selected message file
+                    String decryptedSessionHistory = decryptHistoryWithKey(encSessionHistory, fileMasterKey);
+                    if (decryptedSessionHistory == null || decryptedSessionHistory.isEmpty()) {
+                        continue;
+                    }
+                    // Split the decrypted history into individual messages
+                    String[] messages = decryptedSessionHistory.split(System.lineSeparator());
+                    for (String message : messages) {
+                        if (message == null || message.isEmpty()) {
+                            continue;
                         }
+                        // Only add messages that are valid history entries (they have the expected prefix)
+                        if (message.startsWith("enviado: ") || message.startsWith("recebido: ")) {
+                            logModel.addElement(message);
+                        }
+                        // Optionally, we could also add other messages, but for safety we stick to the prefix.
                     }
-                    // Scroll to the bottom
+                }
+
+                // Scroll to the bottom
+                if (logModel.size() > 0) {
                     logList.setSelectedIndex(logModel.size() - 1);
                     logList.ensureIndexIsVisible(logModel.size() - 1);
-
-                    showMessage("Histórico carregado com sucesso. Exibindo " + logModel.size() + " mensagens.", "Histórico Carregado");
                 }
+
+                showMessage("Histórico carregado com sucesso. Exibindo " + logModel.size() + " mensagens.", "Histórico Carregado");
             } catch (IOException ex) {
                 showMessage("Erro ao ler o arquivo: " + ex.getMessage(), "Erro");
             }
@@ -543,6 +567,7 @@ public class MainWindow extends JFrame {
 
     /**
      * Decrypts the data from Base64, then applies XOR decryption with the given key.
+     * Uses UTF-8 for charset conversion.
      * @param encryptedData The Base64-encoded encrypted string.
      * @param key The XOR key to use for decryption.
      * @return Decrypted string.
@@ -550,14 +575,12 @@ public class MainWindow extends JFrame {
     private String decryptHistoryWithKey(String encryptedData, int key) {
         // Decode from Base64
         byte[] decodedBytes = Base64.getDecoder().decode(encryptedData);
-        String decrypted = new String(decodedBytes);
-
         // Apply XOR decryption with the given key
-        StringBuilder sb = new StringBuilder();
-        for (char c : decrypted.toCharArray()) {
-            sb.append((char) (c ^ key));
+        for (int i = 0; i < decodedBytes.length; i++) {
+            decodedBytes[i] = (byte) (decodedBytes[i] ^ key);
         }
-        return sb.toString();
+        // Convert bytes to string using UTF-8
+        return new String(decodedBytes, StandardCharsets.UTF_8);
     }
 
     /**
