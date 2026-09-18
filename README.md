@@ -4,7 +4,7 @@ Um aplicativo de mensageria criptografada com interface gráfica Swing que usa �
 
 ## Visão Gerale
 
-O BinaryEncrypt é um aplicativo desktop Java que permite aos usuários:
+O Messager é um aplicativo desktop Java que permite aos usuários:
 - Digitar mensagens de texto
 - Transformar mensagens em árvores binárias de busca (BST)
 - Visualizar a árvore binária gerada
@@ -58,7 +58,7 @@ mvn clean compile exec:java -Dexec.mainClass=com.edc.binaryencrypt.main.Main
 
 # Ou criar um JAR executável
 mvn clean package
-java -jar target/Main-0.1.jar
+java -jar target/Messager-0.5.jar
 ```
 
 ### Executando Diretamente
