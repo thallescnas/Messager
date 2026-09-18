@@ -1,4 +1,4 @@
-# BinaryEncrypt - Mensager Cripto
+# Menssager
 
 Um aplicativo de mensageria criptografada com interface gráfica Swing que usa árvores binárias de busca (BST) para transformar mensagens em estruturas de dados criptografáveis.
 
