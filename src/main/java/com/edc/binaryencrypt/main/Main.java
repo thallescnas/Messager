@@ -8,7 +8,6 @@ import com.edc.binaryencrypt.main.ui.MainWindow;
  */
 public class Main {
     public static void main(String[] args) {
-        // Launch the Swing application
         MainWindow.main(args);
     }
 }

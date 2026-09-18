@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.edc.main</groupId>
-    <artifactId>Main</artifactId>
-    <version>0.1</version>
+    <artifactId>Messager</artifactId>
+    <version>0.4</version>
     <packaging>jar</packaging>
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -15,7 +15,6 @@
     </properties>
 
     <dependencies>
-        <!-- No external dependencies needed for Swing -->
     </dependencies>
 
     <build>
@@ -37,7 +36,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>com.edc.binaryencrypt.main.ui.MainWindow</mainClass>
+                            <mainClass>com.edc.binaryencrypt.main.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

@@ -48,7 +48,7 @@ public class MainWindow extends JFrame {
     }
 
     private void initializeUI() {
-        setTitle("Messager Cripto");
+        setTitle("Messager");
         setSize(900, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null); // Center on screen

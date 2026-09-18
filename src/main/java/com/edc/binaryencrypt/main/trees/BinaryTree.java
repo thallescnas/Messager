@@ -1,5 +1,7 @@
 package com.edc.binaryencrypt.main.trees;
 
+import java.util.regex.Pattern;
+
 /**
  * Binary Search Tree (BST) for storing enriched nodes containing:
  * - caractere: the original character
@@ -7,6 +9,10 @@ package com.edc.binaryencrypt.main.trees;
  * - posicaoOriginal: the original index of the character in the input string
  */
 public class BinaryTree {
+    // Delimiters for serialization (using Unicode control characters to avoid collision with user text)
+    private static final String FIELD_SEP = ""; // Start of Heading
+    private static final String NODE_SEP = "";  // Start of Text
+    private static final String NULL_MARKER = "NULL";
     private Node root;
 
     public BinaryTree() {
@@ -53,9 +59,9 @@ public class BinaryTree {
 
     /**
      * Serializes the tree in pre-order traversal, including null markers.
-     * Each node is represented as "valorAscii:caractere:posicaoOriginal".
-     * Null markers are represented as '#'.
-     * Fields are separated by ':', nodes by ','.
+     * Each node is represented as "valorAsciicaractereposicaoOriginal".
+     * Null markers are represented as "NULL".
+     * Nodes are separated by "".
      * @return A string representing the pre-order serialization.
      */
     public String serializePreOrder() {
@@ -66,19 +72,22 @@ public class BinaryTree {
 
     private void serializePreOrderRec(Node node, StringBuilder sb) {
         if (node == null) {
-            sb.append('#').append(',');
+            sb.append(NULL_MARKER).append(NODE_SEP);
             return;
         }
-        sb.append(node.valorAscii).append(':')
-          .append(node.caractere).append(':')
-          .append(node.posicaoOriginal).append(',');
+        sb.append(node.valorAscii)
+          .append(FIELD_SEP)
+          .append(node.caractere)
+          .append(FIELD_SEP)
+          .append(node.posicaoOriginal)
+          .append(NODE_SEP);
         serializePreOrderRec(node.left, sb);
         serializePreOrderRec(node.right, sb);
     }
 
     /**
      * Deserializes the tree from a pre-order string with null markers.
-     * Expected format: "valorAscii:caractere:posicaoOriginal,value,...,#"
+     * Expected format: "valorAsciicaractereposicaoOriginal..."
      * @param data The serialized string.
      */
     public void deserializePreOrder(String data) {
@@ -86,7 +95,7 @@ public class BinaryTree {
             root = null;
             return;
         }
-        String[] tokens = data.split(",");
+        String[] tokens = data.split(Pattern.quote(NODE_SEP));
         int[] index = {0};
         root = deserializePreOrderRec(tokens, index);
     }
@@ -98,12 +107,12 @@ public class BinaryTree {
         String token = tokens[index[0]];
         index[0]++;
 
-        if (token.equals("#")) {
+        if (token.equals(NULL_MARKER)) {
             return null;
         }
 
-        // Expected format: valorAscii:caractere:posicaoOriginal
-        String[] parts = token.split(":");
+        // Expected format: valorAsciicaractereposicaoOriginal
+        String[] parts = token.split(Pattern.quote(FIELD_SEP));
         if (parts.length != 3) {
             // Malformed token, treat as null to avoid crash
             return null;
