@@ -6,7 +6,7 @@
 
     <groupId>com.edc.main</groupId>
     <artifactId>Messager</artifactId>
-    <version>0.4</version>
+    <version>0.5</version>
     <packaging>jar</packaging>
     <properties>
         <maven.compiler.source>21</maven.compiler.source>

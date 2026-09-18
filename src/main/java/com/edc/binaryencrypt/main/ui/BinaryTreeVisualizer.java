@@ -1,37 +1,106 @@
 package com.edc.binaryencrypt.main.ui;
 
 import com.edc.binaryencrypt.main.trees.BinaryTree;
-import com.edc.binaryencrypt.main.trees.BinaryTree.Node;
-
-import java.awt.*;
-import java.awt.geom.*;
-import java.util.HashMap;
-import java.util.Map;
-import javax.swing.*;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import javax.swing.JPanel;
 
 /**
- * Widget to visualize a binary tree.
- * Draws nodes as circles with values and connects them with lines.
+ * Visualizador de Árvore Binária de Busca (BST) para exibir os nós com seus valores ASCII.
+ * Utiliza espaçamento horizontal dinâmico para evitar sobreposição de nós em níveis profundos.
+ * O painel pode ser colocado dentro de um JScrollPane para permitir rolagem horizontal quando necessário.
+ * Agora inclui cálculo de limites para evitar clipping em árvores desbalanceadas.
  */
 public class BinaryTreeVisualizer extends JPanel {
+
     private BinaryTree tree;
-    private static final int NODE_RADIUS = 20;
-    private static final int VERTICAL_SPACING = 60;
-    private static final int HORIZONTAL_SPACING = 100;
+    private static final int VERTICAL_GAP = 50; // Espaçamento vertical fixo entre níveis
+    private static final int BASE_HORIZONTAL_GAP = 150; // Gap horizontal inicial para cálculo de tamanho preferido
+    private static final int NODE_DIAMETER = 40; // Diâmetro do círculo que representa o nó
+    private static final int PADDING = 20; // Padding mínimo ao redor da árvore
 
     public BinaryTreeVisualizer() {
-        this.tree = new BinaryTree(); // Empty tree
-        setPreferredSize(new Dimension(400, 300));
-        setBackground(new Color(43, 45, 66)); // #2B2D42
+        this.tree = new BinaryTree();
+        setBackground(new Color(43, 45, 66)); // #2B2D42 dark background to match main UI
     }
 
     /**
-     * Sets the binary tree to visualize.
-     * @param tree The binary tree to display
+     * Define a árvore a ser visualizada e atualiza o tamanho preferido do painel.
+     * @param tree A árvore binária de busca
      */
     public void setBinaryTree(BinaryTree tree) {
         this.tree = tree;
-        repaint(); // Trigger repaint
+        updatePreferredSize();
+        repaint();
+    }
+
+    /**
+     * Atualiza o tamanho preferido do painel com base nos limites reais da árvore.
+     * Isso permite que o JScrollPane exiba barras de rolagem quando necessário.
+     */
+    private void updatePreferredSize() {
+        if (tree == null || tree.isEmpty()) {
+            setPreferredSize(new Dimension(200, 200));
+            return;
+        }
+
+        // Calcula os limites da árvore com um espaçamento inicial razoável
+        double initialHGAP = Math.max(BASE_HORIZONTAL_GAP, 100); // Use base gap as initial
+        Bounds bounds = computeBounds(initialHGAP);
+
+        // Largura necessária: (maxX - minX) + diâmetro do nó + 2 * padding
+        int width = (int) Math.round(bounds.maxX - bounds.minX) + NODE_DIAMETER + 2 * PADDING;
+        // Altura necessária: (maxY - minY) + diâmetro do nó + 2 * padding
+        int height = (int) Math.round(bounds.maxY - bounds.minY) + NODE_DIAMETER + 2 * PADDING;
+
+        setPreferredSize(new Dimension(Math.max(width, 200), Math.max(height, 200)));
+    }
+
+    /**
+     * Calcula os limites (minX, maxX, minY, maxY) da árvore considerando o espaçamento horizontal inicial.
+     * As coordenadas são calculadas com a raiz em (0,0) para facilitar o offset posteriormente.
+     */
+    private Bounds computeBounds(double initialHGAP) {
+        Bounds bounds = new Bounds();
+        if (tree.getRoot() != null) {
+            computeBoundsRec(tree.getRoot(), 0, 0, initialHGAP, bounds);
+        }
+        return bounds;
+    }
+
+    private void computeBoundsRec(BinaryTree.Node node, double x, double y, double hGap, Bounds bounds) {
+        if (node == null) {
+            return;
+        }
+        // Atualiza limites com a posição atual do nó (centro)
+        if (x < bounds.minX) bounds.minX = x;
+        if (x > bounds.maxX) bounds.maxX = x;
+        if (y < bounds.minY) bounds.minY = y;
+        if (y > bounds.maxY) bounds.maxY = y;
+
+        // Recursivamente calcula limites para filhos
+        if (node.left != null) {
+            computeBoundsRec(node.left, x - hGap, y + VERTICAL_GAP, hGap / 2, bounds);
+        }
+        if (node.right != null) {
+            computeBoundsRec(node.right, x + hGap, y + VERTICAL_GAP, hGap / 2, bounds);
+        }
+    }
+
+    /**
+     * Classe auxiliar para armazenar os limites calculados.
+     */
+    private static class Bounds {
+        double minX = 0;
+        double maxX = 0;
+        double minY = 0;
+        double maxY = 0;
     }
 
     @Override
@@ -39,120 +108,89 @@ public class BinaryTreeVisualizer extends JPanel {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        if (tree == null) {
-            return;
-        }
-
-        if (tree.isEmpty()) {
-            // Draw placeholder text
-            g2d.setColor(new Color(138, 149, 183)); // #8A95B7
-            g2d.setFont(new Font("SansSerif", Font.BOLD, 16));
-            FontMetrics fm = g2d.getFontMetrics();
-            int textWidth = fm.stringWidth("Árvore vazia");
-            int x = (getWidth() - textWidth) / 2;
-            int y = getHeight() / 2 + fm.getAscent() / 2;
-            g2d.drawString("Árvore vazia", x, y);
-            return;
-        }
-
-        // Calculate positions for nodes
-        Map<Node, Point> nodePositions = new HashMap<>();
-        calculateNodePositions(tree.getRoot(), 0, 0, getWidth() / 2, 50, nodePositions);
-
-        // Draw lines first (so they appear under nodes)
         g2d.setStroke(new BasicStroke(2));
-        g2d.setColor(new Color(138, 149, 183)); // #8A95B7
-        drawLines(g2d, tree.getRoot(), nodePositions);
 
-        // Draw nodes
-        drawNodes(g2d, tree.getRoot(), nodePositions);
+        if (tree == null || tree.isEmpty()) {
+            return;
+        }
+
+        BinaryTree.Node root = tree.getRoot();
+        if (root == null) {
+            return;
+        }
+
+        // Calcula os limites da árvore com o espaçamento inicial baseado na largura atual
+        double initialHGAP = Math.max(getWidth() / 4.0, BASE_HORIZONTAL_GAP / 2);
+        Bounds bounds = computeBounds(initialHGAP);
+
+        // Calcula offset para garantir que o nó mais à esquerda fique dentro do padding
+        double offsetX = -bounds.minX + PADDING;
+        double offsetY = -bounds.minY + PADDING;
+
+        // Posição inicial da raiz com offset aplicado
+        double startX = offsetX; // pois a raiz estava em (0,0) no cálculo de limites
+        double startY = offsetY;
+
+        // Desenha a árvore recursivamente com o offset
+        drawTree(g2d, root, startX, startY, initialHGAP);
     }
 
     /**
-     * Calculates positions for all nodes in the tree.
+     * Desenha recursivamente a árvore a partir do nó fornecido.
+     * Linhas são desenhadas primeiro, depois os nós, para que os círculos apareçam sobre as linhas.
+     *
+     * @param g2d     Contexto de gráficos 2D
+     * @param node    Nó atual a ser desenhado
+     * @param x       Coordenada X do nó atual (centro do círculo)
+     * @param y       Coordenada Y do nó atual (centro do círculo)
+     * @param hGap    Espaçamento horizontal a ser usado para os filhos deste nó
      */
-    private void calculateNodePositions(Node node, int depth, int index, int xCenter, int xOffset, Map<Node, Point> positions) {
+    private void drawTree(Graphics2D g2d, BinaryTree.Node node, double x, double y, double hGap) {
         if (node == null) {
             return;
         }
 
-        // Calculate x position based on index and depth
-        int x = xCenter - (int)(xOffset * (Math.pow(2, depth) - 1 - 2 * index));
-        int y = 50 + depth * VERTICAL_SPACING;
-
-        positions.put(node, new Point(x, y));
-
-        // Recursively calculate positions for children
-        calculateNodePositions(node.left, depth + 1, index * 2, xCenter, xOffset / 2, positions);
-        calculateNodePositions(node.right, depth + 1, index * 2 + 1, xCenter, xOffset / 2, positions);
-    }
-
-    /**
-     * Draws lines connecting nodes.
-     */
-    private void drawLines(Graphics2D g2d, Node node, Map<Node, Point> positions) {
-        if (node == null) {
-            return;
-        }
-
-        Point pos = positions.get(node);
-        if (pos == null) {
-            return;
-        }
-
+        // Desenha as linhas conectando aos filhos PRIMEIRO
+        // Desenha o filho esquerdo (se existir)
         if (node.left != null) {
-            Point leftPos = positions.get(node.left);
-            if (leftPos != null) {
-                g2d.drawLine(pos.x, pos.y, leftPos.x, leftPos.y);
-                drawLines(g2d, node.left, positions);
-            }
+            double leftX = x - hGap;
+            double leftY = y + VERTICAL_GAP;
+
+            // Linha conectando o nó atual ao filho esquerdo (centro a centro)
+            g2d.setColor(Color.WHITE); // Linha clara para contraste no fundo escuro
+            g2d.drawLine((int) Math.round(x), (int) Math.round(y), (int) Math.round(leftX), (int) Math.round(leftY));
+
+            // Chamada recursiva para o subárvore esquerda
+            drawTree(g2d, node.left, leftX, leftY, hGap / 2);
         }
 
+        // Desenha o filho direito (se existir)
         if (node.right != null) {
-            Point rightPos = positions.get(node.right);
-            if (rightPos != null) {
-                g2d.drawLine(pos.x, pos.y, rightPos.x, rightPos.y);
-                drawLines(g2d, node.right, positions);
-            }
-        }
-    }
+            double rightX = x + hGap;
+            double rightY = y + VERTICAL_GAP;
 
-    /**
-     * Draws nodes as circles with values.
-     */
-    private void drawNodes(Graphics2D g2d, Node node, Map<Node, Point> positions) {
-        if (node == null) {
-            return;
+            // Linha conectando o nó atual ao filho direito (centro a centro)
+            g2d.setColor(Color.WHITE); // Linha clara para contraste no fundo escuro
+            g2d.drawLine((int) Math.round(x), (int) Math.round(y), (int) Math.round(rightX), (int) Math.round(rightY));
+
+            // Chamada recursiva para o subárvore direita
+            drawTree(g2d, node.right, rightX, rightY, hGap / 2);
         }
 
-        Point pos = positions.get(node);
-        if (pos == null) {
-            return;
-        }
-
-        // Draw circle
+        // Depois desenha o nó atual (círculo com valor ASCII) por cima das linhas
+        g2d.setColor(new Color(70, 130, 180)); // Azul aço
+        g2d.fillOval((int) Math.round(x - NODE_DIAMETER / 2.0), (int) Math.round(y - NODE_DIAMETER / 2.0),
+                NODE_DIAMETER, NODE_DIAMETER);
         g2d.setColor(Color.WHITE);
-        g2d.fill(new Ellipse2D.Double(pos.x - NODE_RADIUS, pos.y - NODE_RADIUS,
-                NODE_RADIUS * 2, NODE_RADIUS * 2));
-        g2d.setColor(new Color(58, 63, 88)); // #3A3F58
-        g2d.setStroke(new BasicStroke(2));
-        g2d.draw(new Ellipse2D.Double(pos.x - NODE_RADIUS, pos.y - NODE_RADIUS,
-                NODE_RADIUS * 2, NODE_RADIUS * 2));
-
-        // Draw value (the ASCII value)
-        g2d.setColor(new Color(51, 51, 51)); // #333333
-        g2d.setFont(new Font("SansSerif", Font.BOLD, 12));
+        // Centraliza o texto usando FontMetrics
+        Font font = new Font("SansSerif", Font.BOLD, 14);
+        g2d.setFont(font);
         FontMetrics fm = g2d.getFontMetrics();
         String valueText = String.valueOf(node.valorAscii);
         int textWidth = fm.stringWidth(valueText);
         int textHeight = fm.getAscent();
-        int x = pos.x - textWidth / 2;
-        int y = pos.y + textHeight / 2 - fm.getDescent();
-        g2d.drawString(valueText, x, y);
-
-        // Recursively draw children
-        drawNodes(g2d, node.left, positions);
-        drawNodes(g2d, node.right, positions);
+        int textX = (int) Math.round(x - textWidth / 2.0);
+        int textY = (int) Math.round(y + textHeight / 2.0 - fm.getDescent());
+        g2d.drawString(valueText, textX, textY);
     }
 }

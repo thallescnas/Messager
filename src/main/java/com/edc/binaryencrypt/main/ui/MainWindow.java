@@ -77,8 +77,10 @@ public class MainWindow extends JFrame {
         leftPanel.add(welcomeLabel, BorderLayout.NORTH);
 
         treeVisualizer = new BinaryTreeVisualizer();
-        treeVisualizer.setPreferredSize(new Dimension(300, 400));
-        leftPanel.add(treeVisualizer, BorderLayout.CENTER);
+        // Wrap the tree visualizer in a JScrollPane to handle clipping for unbalanced trees
+        JScrollPane treeScrollPane = new JScrollPane(treeVisualizer);
+        treeScrollPane.setBorder(null);
+        leftPanel.add(treeScrollPane, BorderLayout.CENTER);
 
         // Right side: Log and Input
         JPanel rightPanel = new JPanel(new BorderLayout(10, 10));
